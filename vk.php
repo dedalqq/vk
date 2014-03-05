@@ -19,13 +19,13 @@ class vk
         'notes'
     );
 
-    private function getUrl($method, array $parameters = array())
+    private function getUrl($method, array $parameters = array(), $api_url = self::API_URL)
     {
         $vars = array();
         foreach ($parameters as $name => $value) {
             $vars[] = $name . '=' . urlencode($value);
         }
-        return self::API_URL.'/'.$method.(empty($vars) ? '' : '?' . join('&', $vars));
+        return $api_url.'/'.$method.(empty($vars) ? '' : '?' . join('&', $vars));
     }
 
     public function __construct($app_id, $token = null) {
@@ -83,14 +83,15 @@ class vk
             $permission = $this->default_permission;
         }
         return $this->getUrl(
-            'https://oauth.vk.com/authorize',
+            'authorize',
             array(
                 'client_id' => $this->app_id,
                 'scope' => join(',', $permission),
                 'redirect_uri' => 'blank.html',
                 'display' => 'popup',
                 'response_type' => 'token'
-            )
+            ),
+            'https://oauth.vk.com'
         );
     }
 
