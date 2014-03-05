@@ -16,7 +16,8 @@ class vk
         'offline',
         'status',
         'docs',
-        'notes'
+        'notes',
+        'friends'
     );
 
     private function getUrl($method, array $parameters = array(), $api_url = self::API_URL)
