@@ -3,6 +3,8 @@
 class vk
 {
 
+    const API_URL = 'https://api.vk.com/method';
+
     private $app_id = null;
     private $token = null;
     private $current_user = null;
@@ -12,16 +14,18 @@ class vk
         'messages',
         'audio',
         'offline',
-        'status'
+        'status',
+        'docs',
+        'notes'
     );
 
-    private function getUrl($host, array $parameters = array())
+    private function getUrl($method, array $parameters = array())
     {
         $vars = array();
         foreach ($parameters as $name => $value) {
-            $vars[] = $name . '=' . $value;
+            $vars[] = $name . '=' . urlencode($value);
         }
-        return $host . (empty($vars) ? '' : '?' . join('&', $vars));
+        return self::API_URL.'/'.$method.(empty($vars) ? '' : '?' . join('&', $vars));
     }
 
     public function __construct($app_id, $token = null) {
@@ -35,7 +39,7 @@ class vk
 
     private function isLogin() {
         $url = $this->getUrl(
-            'https://api.vk.com/method/users.get',
+            'users.get',
             array(
                 'access_token' => $this->token
             )
@@ -61,7 +65,7 @@ class vk
         }
         if (empty($this->users[$id])) {
             $url = $this->getUrl(
-                'https://api.vk.com/method/users.get',
+                'users.get',
                 array(
                     'uids' => $id,
                     'access_token' => $this->token
@@ -96,7 +100,7 @@ class vk
             return false;
         }
         $url = $this->getUrl(
-            'https://api.vk.com/method/messages.getLongPollServer',
+            'messages.getLongPollServer',
             array(
                 'access_token' => $this->token
             )
@@ -149,16 +153,138 @@ class vk
         return null;
     }
 
+    public function getDocs() {
+        if (empty($this->current_user)) {
+            echo "Токин кривой =(\n";
+            return false;
+        }
+        $url = $this->getUrl(
+            'docs.get',
+            array(
+                'access_token' => $this->token,
+            )
+        );
+        $response = $this->runCommand($url);
+        return $response->response;
+    }
+
+    public function getNotices() {
+        if (empty($this->current_user)) {
+            echo "Токин кривой =(\n";
+            return false;
+        }
+        $url = $this->getUrl(
+            'notes.get',
+            array(
+                'access_token' => $this->token,
+            )
+        );
+        $response = $this->runCommand($url);
+        return $response->response;
+    }
+
+    public function createNotice($title, $text) {
+        if (empty($this->current_user)) {
+            echo "Токин кривой =(\n";
+            return false;
+        }
+        $url = $this->getUrl(
+            'notes.add',
+            array(
+                'access_token' => $this->token,
+                'title' => $title,
+                'text' => $text
+            )
+        );
+        $response = $this->runCommand($url);
+        return $response->response;
+    }
+
+    public function uploadFile($file_name, $file_content, $is_base_64 = false) {
+        if ($is_base_64) {
+            $file_content = base64_decode($file_content);
+        }
+        $url = $this->getUrl(
+            'docs.getUploadServer',
+            array(
+                'access_token' => $this->token,
+            )
+        );
+        $response = $this->runCommand($url);
+        $upload_url = $response->response->upload_url;
+        return $this->uploadData($file_name, $file_content, $upload_url);
+    }
+
+    private function uploadData($file_name, $file_content, $upload_server) {
+
+        $delimiter = '-------------' . uniqid();
+
+        $fileFields = array(
+            $file_name => array(
+                //'type' => 'text/plain',
+                'content' => $file_content
+            ),
+        );
+
+        $postFields = array(
+            //'otherformfield'   => 'content of otherformfield is this text',
+        );
+
+        $data = '';
+
+
+        foreach ($postFields as $name => $content) {
+            $data .= "--" . $delimiter . "\r\n";
+            $data .= 'Content-Disposition: form-data; name="' . $name . '"';
+            $data .= "\r\n\r\n";
+        }
+
+        foreach ($fileFields as $name => $file) {
+            $data .= "--" . $delimiter . "\r\n";
+            $data .= 'Content-Disposition: form-data; name="' . $name . '";' .
+                ' filename="' . $name . '"' . "\r\n";
+            $data .= 'Content-Type: ' . $file['type'] . "\r\n";
+            $data .= "\r\n";
+            $data .= $file['content'] . "\r\n";
+        }
+
+        $data .= "--" . $delimiter . "--\r\n";
+
+        $handle = curl_init($upload_server);
+        curl_setopt($handle, CURLOPT_POST, true);
+        curl_setopt($handle, CURLOPT_HTTPHEADER , array(
+            'Content-Type: multipart/form-data; boundary='.$delimiter,
+            'Content-Length: '.strlen($data)));
+        curl_setopt($handle, CURLOPT_POSTFIELDS, $data);
+        curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+
+        $response = curl_exec($handle);
+        $response_data = json_decode($response);
+        return $this->saveFile($response_data->file);
+    }
+
+    private function saveFile($file_string) {
+        $url = $this->getUrl(
+            'docs.save',
+            array(
+                'access_token' => $this->token,
+                'file' => $file_string
+            )
+        );
+        $response = $this->runCommand($url);
+        return $response;
+    }
+
     public function setUserTextStatus($text) {
         if (empty($this->current_user)) {
             echo "Токин кривой =(\n";
             return false;
         }
         $url = $this->getUrl(
-            'https://api.vk.com/method/status.set',
+            'status.set',
             array(
                 'access_token' => $this->token,
-                'text' => urlencode($text)
+                'text' => $text
             )
         );
         $response = $this->runCommand($url);
@@ -177,7 +303,7 @@ class vk
     public function downloadAudiFromUser($user, $dir) {
 
         $url = $this->getUrl(
-            'https://api.vk.com/method/audio.get',
+            'audio.get',
             array(
                 'owner_id' => $user,
                 'need_user' => 0,
