@@ -1,7 +1,6 @@
 <?php
 
-class vk
-{
+class vk {
 
     const API_URL = 'https://api.vk.com/method';
 
@@ -20,13 +19,14 @@ class vk
         'friends'
     );
 
-    private function getUrl($method, array $parameters = array(), $api_url = self::API_URL)
-    {
+    private function getUrl($method, array $parameters = array(), $api_url = self::API_URL) {
         $vars = array();
         foreach ($parameters as $name => $value) {
             $vars[] = $name . '=' . urlencode($value);
         }
-        return $api_url.'/'.$method.(empty($vars) ? '' : '?' . join('&', $vars));
+        $method = empty($method) ? '' : '/'.$method;
+        $parameters = (empty($vars) ? '' : '?' . join('&', $vars));
+        return $api_url.$method.$parameters;
     }
 
     public function __construct($app_id, $token = null) {
@@ -72,8 +72,7 @@ class vk
                     'access_token' => $this->token
                 )
             );
-            $data = file_get_contents($url);
-            $data = json_decode($data);
+            $data = $this->runCommand($url);
             $this->users[$id] = $data->response[0]->last_name . ' ' . $data->response[0]->first_name;
         }
         return $this->users[$id];
@@ -113,27 +112,28 @@ class vk
     public function connectToLongPoll($call_bake) {
         while (true) {
             $url = $this->getLongPoll();
-            $data = file_get_contents($url);
-            $data = json_decode($data);
+            $data = $this->runCommand($url);
             if (empty($data->response->server)) {
-                echo "Хрень какая то =( \n";
-                var_dump($data);
-                return false;
+                echo "system: Не удалось получить сервер \n";
+                //var_dump($data);
+                //return false;
+                sleep(10);
+                continue;
             }
             $ts = $data->response->ts;
             while (true) {
                 $url = $this->getUrl(
-                    'http://' . $data->response->server,
+                    '',
                     array(
                         'act' => 'a_check',
                         'key' => $data->response->key,
                         'ts' => $ts,
                         'wait' => 25,
                         'mode' => 2
-                    )
+                    ),
+                    'http://' . $data->response->server
                 );
-                $mess = file_get_contents($url);
-                $mess = json_decode($mess);
+                $mess = $this->runCommand($url);
                 if (empty($mess->ts)) {
                     continue(2);
                 }
@@ -299,7 +299,19 @@ class vk
 
     public function runCommand($url) {
         $request = file_get_contents($url);
-        return json_decode($request);
+
+        $handle = curl_init($url);
+        //curl_setopt($handle, CURLOPT_POST, true);
+        //curl_setopt($handle, CURLOPT_HTTPHEADER , array(
+        //    'Content-Type: multipart/form-data; boundary='.$delimiter,
+        //    'Content-Length: '.strlen($data)));
+        //curl_setopt($handle, CURLOPT_POSTFIELDS, $data);
+        curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+
+        $response = curl_exec($handle);
+        return json_decode($response);
+
+        //return json_decode($request);
     }
 
     public function downloadAudiFromUser($user, $dir) {
@@ -313,8 +325,7 @@ class vk
             )
         );
 
-        $data = file_get_contents($url);
-        $data = json_decode($data);
+        $data = $this->runCommand($url);
         foreach ($data->response as $i => $v) {
             if (is_numeric($v)) {
                 continue;
