@@ -47,7 +47,7 @@ class vk {
         );
         $data = $this->runCommand($url);
         if (empty($data->response[0]->uid)) {
-            echo "Токин кривой =(\n";
+            $this->log('Токин кривой =(', true);
             return false;
         }
         $this->current_user = array(
@@ -55,13 +55,13 @@ class vk {
             'first_name' => $data->response[0]->first_name,
             'last_name' => $data->response[0]->last_name
         );
-        echo "Токин верный =)\n";
+        $this->log('Токин кривой =(', true);
         return true;
     }
 
     public function getUserName($id) {
         if (empty($this->current_user)) {
-            echo "Токин кривой =(\n";
+            $this->log('Токин кривой =(', true);
             return false;
         }
         if (empty($this->users[$id])) {
@@ -97,7 +97,7 @@ class vk {
 
     public function getLongPoll() {
         if (empty($this->current_user)) {
-            echo "Токин кривой =(\n";
+            $this->log('Токин кривой =(', true);
             return false;
         }
         $url = $this->getUrl(
@@ -113,13 +113,12 @@ class vk {
         while (true) {
             $url = $this->getLongPoll();
             $data = $this->runCommand($url);
-            if (empty($data->response->server)) {
-                echo "system: Не удалось получить сервер \n";
-                //var_dump($data);
-                //return false;
+            if (is_null($data) || empty($data->response->server)) {
+                $this->log('Не удалось получить сервер', true);
                 sleep(10);
                 continue;
             }
+            $this->log('Подключение установлено', true);
             $ts = $data->response->ts;
             while (true) {
                 $url = $this->getUrl(
@@ -145,7 +144,7 @@ class vk {
                 foreach ($mess->updates as $m) {
                     if ($m[0] == 4 && ($m[2] & 2) == 0) {
                         $name = $this->getUserName($m[3]);
-                        echo $name . ': ' . $m[6] . "\n";
+                        $this->log($name.': '.$m[6]);
                         $call_bake($name, $m[6]);
                     }
                 }
@@ -157,7 +156,7 @@ class vk {
 
     public function getDocs() {
         if (empty($this->current_user)) {
-            echo "Токин кривой =(\n";
+            $this->log('Токин кривой =(', true);
             return false;
         }
         $url = $this->getUrl(
@@ -172,7 +171,7 @@ class vk {
 
     public function getNotices() {
         if (empty($this->current_user)) {
-            echo "Токин кривой =(\n";
+            $this->log('Токин кривой =(', true);
             return false;
         }
         $url = $this->getUrl(
@@ -187,7 +186,7 @@ class vk {
 
     public function createNotice($title, $text) {
         if (empty($this->current_user)) {
-            echo "Токин кривой =(\n";
+            $this->log('Токин кривой =(', true);
             return false;
         }
         $url = $this->getUrl(
@@ -200,6 +199,12 @@ class vk {
         );
         $response = $this->runCommand($url);
         return $response->response;
+    }
+
+    private function log($text, $is_system = false) {
+        $type = $is_system ? 'system' : 'info';
+        $date = date('d.m.Y H:i.s');
+        echo "$type: ($date) -> $text\n";
     }
 
     public function uploadFile($file_name, $file_content, $is_base_64 = false) {
@@ -279,7 +284,7 @@ class vk {
 
     public function setUserTextStatus($text) {
         if (empty($this->current_user)) {
-            echo "Токин кривой =(\n";
+            $this->log('Токин кривой =(', true);
             return false;
         }
         $url = $this->getUrl(
@@ -298,20 +303,11 @@ class vk {
     }
 
     public function runCommand($url) {
-        $request = file_get_contents($url);
-
         $handle = curl_init($url);
-        //curl_setopt($handle, CURLOPT_POST, true);
-        //curl_setopt($handle, CURLOPT_HTTPHEADER , array(
-        //    'Content-Type: multipart/form-data; boundary='.$delimiter,
-        //    'Content-Length: '.strlen($data)));
-        //curl_setopt($handle, CURLOPT_POSTFIELDS, $data);
         curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
-
         $response = curl_exec($handle);
-        return json_decode($response);
-
-        //return json_decode($request);
+        $result = json_decode($response);
+        return $result ? $result : null;
     }
 
     public function downloadAudiFromUser($user, $dir) {
