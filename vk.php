@@ -137,6 +137,10 @@ class vk {
                     continue(2);
                 }
                 $ts = $mess->ts;
+		if (!empty($mess->failed)) {
+		    sleep(10);
+		    continue(2);
+		}
                 if (!is_array($mess->updates)) {
                     var_dump($mess);
                     exit;
