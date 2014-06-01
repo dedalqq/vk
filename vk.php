@@ -61,7 +61,7 @@ class vk {
 
     public function getUserName($id) {
         if (empty($this->current_user)) {
-            $this->log('Токин кривой =(', true);
+            //$this->log('Токин кривой =(', true);
             return false;
         }
         if (empty($this->users[$id])) {
@@ -76,6 +76,44 @@ class vk {
             $this->users[$id] = $data->response[0]->last_name . ' ' . $data->response[0]->first_name;
         }
         return $this->users[$id];
+    }
+
+    public function getHistory($id) {
+	$history = '';
+	$i = 0;
+	$count = 150;
+	while(true) {
+	    
+	    $url = $this->getUrl(
+               'messages.getHistory',
+                array(
+		    'rev' => 1,
+		    'count' => $count,
+		    'offset' => ($count*$i),
+                    'uid' => $id,
+                    'access_token' => $this->token
+                )
+            );
+            $data = $this->runCommand($url);
+
+		if (count($data->response) == 1) {
+		    break;
+		}
+		echo count($data->response);
+
+		unset($data->response[0]);
+
+		foreach($data->response as $item) {
+			$user_name = $this->getUserName($item->from_id);
+			$date = date('d.m.Y H:i:s', $item->date);
+			$history.= "$user_name [{$item->mid}] ($date): {$item->body} \n";
+		}
+		++$i;
+		echo "-> $i \n";
+		sleep(1);
+	}
+	return $history;
+	
     }
 
     public function getLoginUrl(array $permission = array()) {
