@@ -79,6 +79,8 @@ class vk
 
     private $users = array();
 
+    private $sand_message_id = 0;
+
     private $default_permission = array(
         'messages',
         'audio',
@@ -153,15 +155,22 @@ class vk
         return $this->users[$id];
     }
 
-    public function sandMessage($user, $text) {
+    public function sandMessage($user, $text, $can_replace = true) {
+
+        $data = array(
+            'uid'     => $user,
+            'message'    => $text,
+            'access_token' => $this->token
+        );
+
+        if ($can_replace) {
+            ++$this->sand_message_id;
+            $data['guid'] = $this->sand_message_id;
+        }
 
         $url = $this->getUrl(
             'messages.send',
-            array(
-                'uid'     => $user,
-                'message'    => $text,
-                'access_token' => $this->token
-            )
+            $data
         );
 
         return $this->runCommand($url);
