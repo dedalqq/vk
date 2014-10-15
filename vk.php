@@ -1,12 +1,82 @@
 <?php
 
-class vk {
+class message
+{
+
+    const MESSAGE_TYPE = 0;
+
+    const TYPE_NEW_MESSAGE = 4;
+
+    const MESSAGE_FLAG = 2;
+    const MESSAGE_FROM = 3;
+    const MESSAGE_TEXT = 6;
+
+
+    const FLAG_OUTBOX = 2;
+
+    private $data = null;
+
+    /** @var vk */
+    private $vk = null;
+
+    public function __construct(vk $vk, $data)
+    {
+        $this->vk = $vk;
+        $this->data = $data;
+    }
+
+    /**
+     * @return vk
+     */
+    public function getVkObject() {
+        return $this->vk;
+    }
+
+    public function isNewMassage()
+    {
+        return ($this->data[self::MESSAGE_TYPE] == self::TYPE_NEW_MESSAGE);
+    }
+
+    public function getFromUid()
+    {
+        return $this->data[self::MESSAGE_FROM];
+    }
+
+    public function isInBox()
+    {
+        return !($this->data[self::MESSAGE_FLAG] & self::FLAG_OUTBOX);
+    }
+
+    public function getFromUserName()
+    {
+        var_dump($this->getFromUid());
+        $this->vk->getUserName($this->getFromUid());
+    }
+
+    public function getToUid()
+    {
+
+    }
+
+    public function getText()
+    {
+        return (string)$this->data[self::MESSAGE_TEXT];
+    }
+}
+
+
+class vk
+{
 
     const API_URL = 'https://api.vk.com/method';
 
     private $app_id = null;
     private $token = null;
-    private $current_user = null;
+
+    private $cur_user_uid = 0;
+    private $cur_user_first_name = '';
+    private $cur_user_last_name = '';
+
     private $users = array();
 
     private $default_permission = array(
@@ -19,26 +89,29 @@ class vk {
         'friends'
     );
 
-    private function getUrl($method, array $parameters = array(), $api_url = self::API_URL) {
+    private function getUrl($method, array $parameters = array(), $api_url = self::API_URL)
+    {
         $vars = array();
         foreach ($parameters as $name => $value) {
             $vars[] = $name . '=' . urlencode($value);
         }
-        $method = empty($method) ? '' : '/'.$method;
+        $method = empty($method) ? '' : '/' . $method;
         $parameters = (empty($vars) ? '' : '?' . join('&', $vars));
-        return $api_url.$method.$parameters;
+        return $api_url . $method . $parameters;
     }
 
-    public function __construct($app_id, $token = null) {
+    public function __construct($app_id, $token = null)
+    {
         $this->app_id = $app_id;
         if (is_null($token)) {
             echo $this->getLoginUrl();
         }
         $this->token = $token;
-        $this->isLogin();
+        $this->Login();
     }
 
-    private function isLogin() {
+    private function Login()
+    {
         $url = $this->getUrl(
             'users.get',
             array(
@@ -47,23 +120,25 @@ class vk {
         );
         $data = $this->runCommand($url);
         if (empty($data->response[0]->uid)) {
-            $this->log('Токин кривой =(', true);
+            $this->log('Не удалось авторизироваться', true);
             return false;
         }
-        $this->current_user = array(
-            'id' => $data->response[0]->uid,
-            'first_name' => $data->response[0]->first_name,
-            'last_name' => $data->response[0]->last_name
-        );
-        $this->log('Токин кривой =(', true);
+
+        $this->cur_user_uid = $data->response[0]->uid;
+        $this->cur_user_first_name = $data->response[0]->first_name;
+        $this->cur_user_last_name = $data->response[0]->last_name;
+
+        $this->log('Авторизация прошла успешно', true);
         return true;
     }
 
-    public function getUserName($id) {
-        if (empty($this->current_user)) {
-            //$this->log('Токин кривой =(', true);
-            return false;
-        }
+    public function isLogin()
+    {
+        return ($this->cur_user_uid > 0);
+    }
+
+    public function getUserName($id)
+    {
         if (empty($this->users[$id])) {
             $url = $this->getUrl(
                 'users.get',
@@ -78,45 +153,62 @@ class vk {
         return $this->users[$id];
     }
 
-    public function getHistory($id) {
-	$history = '';
-	$i = 0;
-	$count = 150;
-	while(true) {
-	    
-	    $url = $this->getUrl(
-               'messages.getHistory',
+    public function sandMessage($user, $text) {
+
+        $url = $this->getUrl(
+            'messages.send',
+            array(
+                'uid'     => $user,
+                'message'    => $text,
+                'access_token' => $this->token
+            )
+        );
+
+        return $this->runCommand($url);
+    }
+
+
+    public function getHistory($id)
+    {
+        $history = '';
+        $i = 0;
+        $count = 150;
+        while (true) {
+
+            $url = $this->getUrl(
+                'messages.getHistory',
                 array(
-		    'rev' => 1,
-		    'count' => $count,
-		    'offset' => ($count*$i),
+                    'rev' => 1,
+                    'count' => $count,
+                    'offset' => ($count * $i),
                     'uid' => $id,
                     'access_token' => $this->token
                 )
             );
             $data = $this->runCommand($url);
 
-		if (count($data->response) == 1) {
-		    break;
-		}
-		echo count($data->response);
+            if (count($data->response) == 1) {
+                break;
+            }
+            echo count($data->response);
 
-		unset($data->response[0]);
+            unset($data->response[0]);
 
-		foreach($data->response as $item) {
-			$user_name = $this->getUserName($item->from_id);
-			$date = date('d.m.Y H:i:s', $item->date);
-			$history.= "$user_name [{$item->mid}] ($date): {$item->body} \n";
-		}
-		++$i;
-		echo "-> $i \n";
-		sleep(1);
-	}
-	return $history;
-	
+            foreach ($data->response as $item) {
+                $user_name = $this->getUserName($item->from_id);
+                $date = date('d.m.Y H:i:s', $item->date);
+                $history .= "$user_name [{$item->mid}] ($date): {$item->body} \n";
+            }
+            ++$i;
+            echo "-> $i \n";
+            sleep(1);
+        }
+        return $history;
+
     }
 
-    public function getLoginUrl(array $permission = array()) {
+    public function getLoginUrl(array $permission = array())
+    {
         if (empty($permission)) {
             $permission = $this->default_permission;
         }
@@ -133,11 +225,8 @@ class vk {
         );
     }
 
-    public function getLongPoll() {
-        if (empty($this->current_user)) {
-            $this->log('Токин кривой =(', true);
-            return false;
-        }
+    public function getLongPoll()
+    {
         $url = $this->getUrl(
             'messages.getLongPollServer',
             array(
@@ -147,7 +236,8 @@ class vk {
         return $url;
     }
 
-    public function connectToLongPoll($call_bake) {
+    public function connectToLongPoll($call_bake)
+    {
         while (true) {
             $url = $this->getLongPoll();
             $data = $this->runCommand($url);
@@ -175,19 +265,18 @@ class vk {
                     continue(2);
                 }
                 $ts = $mess->ts;
-		if (!empty($mess->failed)) {
-		    sleep(10);
-		    continue(2);
-		}
+                if (!empty($mess->failed)) {
+                    sleep(10);
+                    continue(2);
+                }
                 if (!is_array($mess->updates)) {
-                    var_dump($mess);
                     exit;
                 }
-                foreach ($mess->updates as $m) {
-                    if ($m[0] == 4 && ($m[2] & 2) == 0) {
-                        $name = $this->getUserName($m[3]);
-                        $this->log($name.': '.$m[6]);
-                        $call_bake($name, $m[6]);
+                foreach ($mess->updates as $message_data) {
+
+                    if (is_callable($call_bake)) {
+                        $message = new message($this, $message_data);
+                        $call_bake($message);
                     }
                 }
             }
@@ -196,11 +285,8 @@ class vk {
         return null;
     }
 
-    public function getDocs() {
-        if (empty($this->current_user)) {
-            $this->log('Токин кривой =(', true);
-            return false;
-        }
+    public function getDocs()
+    {
         $url = $this->getUrl(
             'docs.get',
             array(
@@ -211,11 +297,8 @@ class vk {
         return $response->response;
     }
 
-    public function getNotices() {
-        if (empty($this->current_user)) {
-            $this->log('Токин кривой =(', true);
-            return false;
-        }
+    public function getNotices()
+    {
         $url = $this->getUrl(
             'notes.get',
             array(
@@ -226,11 +309,8 @@ class vk {
         return $response->response;
     }
 
-    public function createNotice($title, $text) {
-        if (empty($this->current_user)) {
-            $this->log('Токин кривой =(', true);
-            return false;
-        }
+    public function createNotice($title, $text)
+    {
         $url = $this->getUrl(
             'notes.add',
             array(
@@ -243,13 +323,16 @@ class vk {
         return $response->response;
     }
 
-    private function log($text, $is_system = false) {
+    private function log($text, $is_system = false)
+    {
+        return null;
         $type = $is_system ? 'system' : 'info';
         $date = date('d.m.Y H:i.s');
         echo "$type: ($date) -> $text\n";
     }
 
-    public function uploadFile($file_name, $file_content, $is_base_64 = false) {
+    public function uploadFile($file_name, $file_content, $is_base_64 = false)
+    {
         if ($is_base_64) {
             $file_content = base64_decode($file_content);
         }
@@ -264,7 +347,8 @@ class vk {
         return $this->uploadData($file_name, $file_content, $upload_url);
     }
 
-    private function uploadData($file_name, $file_content, $upload_server) {
+    private function uploadData($file_name, $file_content, $upload_server)
+    {
 
         $delimiter = '-------------' . uniqid();
 
@@ -275,8 +359,7 @@ class vk {
             ),
         );
 
-        $postFields = array(
-            //'otherformfield'   => 'content of otherformfield is this text',
+        $postFields = array(//'otherformfield'   => 'content of otherformfield is this text',
         );
 
         $data = '';
@@ -301,9 +384,9 @@ class vk {
 
         $handle = curl_init($upload_server);
         curl_setopt($handle, CURLOPT_POST, true);
-        curl_setopt($handle, CURLOPT_HTTPHEADER , array(
-            'Content-Type: multipart/form-data; boundary='.$delimiter,
-            'Content-Length: '.strlen($data)));
+        curl_setopt($handle, CURLOPT_HTTPHEADER, array(
+            'Content-Type: multipart/form-data; boundary=' . $delimiter,
+            'Content-Length: ' . strlen($data)));
         curl_setopt($handle, CURLOPT_POSTFIELDS, $data);
         curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
 
@@ -312,7 +395,8 @@ class vk {
         return $this->saveFile($response_data->file);
     }
 
-    private function saveFile($file_string) {
+    private function saveFile($file_string)
+    {
         $url = $this->getUrl(
             'docs.save',
             array(
@@ -324,11 +408,8 @@ class vk {
         return $response;
     }
 
-    public function setUserTextStatus($text) {
-        if (empty($this->current_user)) {
-            $this->log('Токин кривой =(', true);
-            return false;
-        }
+    public function setUserTextStatus($text)
+    {
         $url = $this->getUrl(
             'status.set',
             array(
@@ -340,11 +421,13 @@ class vk {
         return (bool)$response->response;
     }
 
-    public function getUserTextStatus() {
+    public function getUserTextStatus()
+    {
 
     }
 
-    public function runCommand($url) {
+    public function runCommand($url)
+    {
         $handle = curl_init($url);
         curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
         $response = curl_exec($handle);
@@ -352,7 +435,8 @@ class vk {
         return $result ? $result : null;
     }
 
-    public function downloadAudiFromUser($user, $dir) {
+    public function downloadAudiFromUser($user, $dir)
+    {
 
         $url = $this->getUrl(
             'audio.get',
