@@ -1,69 +1,6 @@
 <?php
 
-class message
-{
-
-    const MESSAGE_TYPE = 0;
-
-    const TYPE_NEW_MESSAGE = 4;
-
-    const MESSAGE_FLAG = 2;
-    const MESSAGE_FROM = 3;
-    const MESSAGE_TEXT = 6;
-
-
-    const FLAG_OUTBOX = 2;
-
-    private $data = null;
-
-    /** @var vk */
-    private $vk = null;
-
-    public function __construct(vk $vk, $data)
-    {
-        $this->vk = $vk;
-        $this->data = $data;
-    }
-
-    /**
-     * @return vk
-     */
-    public function getVkObject() {
-        return $this->vk;
-    }
-
-    public function isNewMassage()
-    {
-        return ($this->data[self::MESSAGE_TYPE] == self::TYPE_NEW_MESSAGE);
-    }
-
-    public function getFromUid()
-    {
-        return $this->data[self::MESSAGE_FROM];
-    }
-
-    public function isInBox()
-    {
-        return !($this->data[self::MESSAGE_FLAG] & self::FLAG_OUTBOX);
-    }
-
-    public function getFromUserName()
-    {
-        var_dump($this->getFromUid());
-        $this->vk->getUserName($this->getFromUid());
-    }
-
-    public function getToUid()
-    {
-
-    }
-
-    public function getText()
-    {
-        return (string)$this->data[self::MESSAGE_TEXT];
-    }
-}
-
+namespace vk;
 
 class vk
 {
@@ -82,7 +19,9 @@ class vk
     private $sand_message_id = 0;
 
     private $default_permission = array(
-        'messages',
+        //'messages',
+        'notify',
+        'email',
         'audio',
         'offline',
         'status',
@@ -105,11 +44,11 @@ class vk
     public function __construct($app_id, $token = null)
     {
         $this->app_id = $app_id;
-        if (is_null($token)) {
-            echo $this->getLoginUrl();
+
+        if (!is_null($token)) {
+            $this->token = $token;
+            $this->Login();
         }
-        $this->token = $token;
-        $this->Login();
     }
 
     private function Login()
@@ -216,7 +155,7 @@ class vk
 
     }
 
-    public function getLoginUrl(array $permission = array())
+    public function getLoginUrl(array $permission = array(), $redirect_uri = 'blank.html')
     {
         if (empty($permission)) {
             $permission = $this->default_permission;
@@ -226,7 +165,7 @@ class vk
             array(
                 'client_id' => $this->app_id,
                 'scope' => join(',', $permission),
-                'redirect_uri' => 'blank.html',
+                'redirect_uri' => $redirect_uri,
                 'display' => 'popup',
                 'response_type' => 'token'
             ),
