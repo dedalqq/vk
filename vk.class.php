@@ -78,6 +78,15 @@ class vk
         return ($this->cur_user_uid > 0);
     }
 
+    public function getCurUserName() {
+        // todo передедать на объект
+        return array(
+            $this->cur_user_uid,
+            $this->cur_user_first_name,
+            $this->cur_user_last_name
+        );
+    }
+
     public function getUserName($id)
     {
         if (empty($this->users[$id])) {
