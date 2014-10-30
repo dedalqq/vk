@@ -10,7 +10,7 @@ class vk
     private $app_id = null;
     private $token = null;
 
-    private $cur_user_uid = 0;
+    private $cur_user_id = 0;
     private $cur_user_first_name = '';
     private $cur_user_last_name = '';
 
@@ -65,7 +65,7 @@ class vk
             return false;
         }
 
-        $this->cur_user_uid = $data->response[0]->uid;
+        $this->cur_user_id = (int)$data->response[0]->uid;
         $this->cur_user_first_name = $data->response[0]->first_name;
         $this->cur_user_last_name = $data->response[0]->last_name;
 
@@ -73,15 +73,19 @@ class vk
         return true;
     }
 
+    public function getCurUserId() {
+        return $this->cur_user_id;
+    }
+
     public function isLogin()
     {
-        return ($this->cur_user_uid > 0);
+        return ($this->cur_user_id > 0);
     }
 
     public function getCurUserName() {
         // todo передедать на объект
         return array(
-            $this->cur_user_uid,
+            $this->cur_user_id,
             $this->cur_user_first_name,
             $this->cur_user_last_name
         );
@@ -392,8 +396,7 @@ class vk
         return $result ? $result : null;
     }
 
-    public function downloadAudiFromUser($user, $dir)
-    {
+    public function getAudioList($user) {
 
         $url = $this->getUrl(
             'audio.get',
@@ -404,11 +407,20 @@ class vk
             )
         );
 
-        $data = $this->runCommand($url);
+        return $this->runCommand($url);
+    }
+
+    public function downloadAudiFromUser($user, $dir)
+    {
+
+        $data = $this->getAudioList($user);
+
         foreach ($data->response as $i => $v) {
+
             if (is_numeric($v)) {
                 continue;
             }
+
             $url = $v->url;
             $title = $v->artist . ' - ' . $v->title;
             $content = file_get_contents($url);
