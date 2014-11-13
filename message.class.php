@@ -51,7 +51,6 @@ class message
 
     public function getFromUserName()
     {
-        var_dump($this->getFromUid());
         $this->vk->getUserName($this->getFromUid());
     }
 

@@ -14,6 +14,10 @@ class vk
     private $cur_user_first_name = '';
     private $cur_user_last_name = '';
 
+    private $client_secret = '';
+
+    private $app_token = '';
+
     private $users = array();
 
     private $sand_message_id = 0;
@@ -29,6 +33,10 @@ class vk
         'notes',
         'friends'
     );
+
+    public function setClientSecret($client_secret) {
+        $this->client_secret = $client_secret;
+    }
 
     private function getUrl($method, array $parameters = array(), $api_url = self::API_URL)
     {
@@ -49,6 +57,10 @@ class vk
             $this->token = $token;
             $this->Login();
         }
+    }
+
+    public function setAppToken($app_token) {
+        $this->app_token = $app_token;
     }
 
     private function Login()
@@ -429,4 +441,39 @@ class vk
 
     }
 
+    public function loginApp() {
+
+        $url = $this->getUrl(
+            'access_token',
+            array(
+                'client_id' => $this->app_id,
+                'client_secret' => $this->client_secret,
+                'grant_type' => 'client_credentials'
+            ),
+            'https://oauth.vk.com'
+        );
+
+        $data = $this->runCommand($url);
+
+        if (empty($data->access_token)) {
+            return null;
+        }
+
+        return (string)$data->access_token;
+    }
+
+    public function sendAppNotificationToUser($user_id, $text) {
+        $url = $this->getUrl(
+            'secure.sendNotification',
+            array(
+                'user_id' => $user_id,
+                'message' => $text,
+                'client_secret' => $this->client_secret,
+                'access_token' => $this->app_token
+            )
+        );
+
+        $data = $this->runCommand($url);
+        var_dump($data);
+    }
 }
