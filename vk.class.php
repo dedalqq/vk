@@ -2,6 +2,8 @@
 
 namespace vk;
 
+use model\history;
+
 class vk
 {
 
@@ -23,7 +25,7 @@ class vk
     private $sand_message_id = 0;
 
     private $default_permission = array(
-        //'messages',
+        'messages',
         'notify',
         'email',
         'audio',
@@ -143,7 +145,7 @@ class vk
 
     public function getHistory($id)
     {
-        $history = '';
+        //$history = '';
         $i = 0;
         $count = 150;
         while (true) {
@@ -160,6 +162,8 @@ class vk
             );
             $data = $this->runCommand($url);
 
+            //var_dump($data);
+
             if (count($data->response) == 1) {
                 break;
             }
@@ -168,15 +172,22 @@ class vk
             unset($data->response[0]);
 
             foreach ($data->response as $item) {
-                $user_name = $this->getUserName($item->from_id);
-                $date = date('d.m.Y H:i:s', $item->date);
-                $history .= "$user_name [{$item->mid}] ($date): {$item->body} \n";
+
+                $history = new history();
+                $history->user_id = $item->from_id;
+                $history->text = $item->body;
+                $history->date = $item->date;
+                $history->save();
+
+                //$user_name = $this->getUserName($item->from_id);
+                //$date = date('d.m.Y H:i:s', $item->date);
+                //echo "$user_name [{$item->mid}] ($date): {$item->body} \n";
             }
             ++$i;
             echo "-> $i \n";
-            sleep(1);
+            //sleep(1);
         }
-        return $history;
+        //return $history;
 
     }
 
