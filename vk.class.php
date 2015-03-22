@@ -419,12 +419,16 @@ class vk
         return $result ? $result : null;
     }
 
-    public function getAudioList($user) {
+    /**
+     * @param $user_id
+     * @return mixed|null
+     */
+    public function getAudioList($user_id) {
 
         $url = $this->getUrl(
             'audio.get',
             array(
-                'owner_id' => $user,
+                'owner_id' => $user_id,
                 'need_user' => 0,
                 'access_token' => $this->token
             )
