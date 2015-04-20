@@ -143,11 +143,11 @@ class vk
     }
 
 
-    public function getHistory($id)
+    public function getHistory($id, $call_bake)
     {
-        //$history = '';
         $i = 0;
         $count = 150;
+
         while (true) {
 
             $url = $this->getUrl(
@@ -162,33 +162,23 @@ class vk
             );
             $data = $this->runCommand($url);
 
-            //var_dump($data);
-
             if (count($data->response) == 1) {
                 break;
             }
-            echo count($data->response);
 
             unset($data->response[0]);
 
             foreach ($data->response as $item) {
 
-                $history = new history();
-                $history->user_id = $item->from_id;
-                $history->text = $item->body;
-                $history->date = $item->date;
-                $history->save();
+                if (is_callable($call_bake)) {
+                    $call_bake($this, $item);
+                }
 
-                //$user_name = $this->getUserName($item->from_id);
-                //$date = date('d.m.Y H:i:s', $item->date);
-                //echo "$user_name [{$item->mid}] ($date): {$item->body} \n";
             }
             ++$i;
             echo "-> $i \n";
             //sleep(1);
         }
-        //return $history;
-
     }
 
     public function getLoginUrl(array $permission = array(), $redirect_uri = 'blank.html')
